@@ -56,7 +56,7 @@ sparse_memory_unmap(char *s)
     if (pid < 0) {
       printf("error forking\n");
       exit(1);
-    } else if (pid == 0) {
+    } else if (pid == 0) { //child
       sbrk(-1L * REGION_SZ);
       *(char **)i = i;
       exit(0);
@@ -105,10 +105,10 @@ run(void f(char *), char *s) {
     printf("runtest: fork error\n");
     exit(1);
   }
-  if(pid == 0) {
+  if(pid == 0) { // child 
     f(s);
     exit(0);
-  } else {
+  } else { // parent
     wait(&xstatus);
     if(xstatus != 0) 
       printf("test %s: FAILED\n", s);

@@ -464,6 +464,10 @@ sys_pipe(void)
 
   if(argaddr(0, &fdarray) < 0)
     return -1;
+
+  if (fdarray > p->sz)
+    return -1;
+
   if(pipealloc(&rf, &wf) < 0)
     return -1;
   fd0 = -1;

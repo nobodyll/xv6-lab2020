@@ -65,6 +65,36 @@ usertrap(void)
     intr_on();
 
     syscall();
+  } else if (r_scause() == 15 || r_scause() == 13) {
+    // 13 load error, maybe load an haven't alloced page
+    // sbrk 创建了一个页面，然后访问（分配物理内存）然后删除， 然后在sbrk，然后直接访问，
+    // 此时还没有物理页面, 所有上面加上13 访问错误的判断
+    // 意思是，lazy分配虚拟内存，但是还没分配物理页面的时候直接访问
+
+    // 15 store page fault.
+
+    // judge the va whether < proc-sz
+    // allocate a new page and map it to va
+    // continue exec the user instruction
+    
+    uint64 va = r_stval();
+    if ((va > p->sz) || (isStackGuardPage(p->pagetable, va) == 0)) {
+      p->killed = 1; // kill process
+    } else {
+      va = PGROUNDDOWN(va);
+
+      void *mem = kalloc();
+      if (mem == 0) {
+        p->killed = 1; // run out of memory, just kill process.
+      } else {
+        memset(mem, 0, PGSIZE);
+        if (mappages(p->pagetable, va, PGSIZE, (uint64)mem,
+                     PTE_W | PTE_R | PTE_U) != 0) {
+          kfree(mem);
+          p->killed = 1;
+        }
+      }
+    }
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
@@ -137,7 +167,7 @@ kerneltrap()
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
   uint64 scause = r_scause();
-  
+    
   if((sstatus & SSTATUS_SPP) == 0)
     panic("kerneltrap: not from supervisor mode");
   if(intr_get() != 0)

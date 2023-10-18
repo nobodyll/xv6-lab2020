@@ -46,9 +46,23 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
+
+  struct proc *p = myproc();
   addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
+
+  if (n < 0) {
+    // printf("pid:%d , before uvmunmap.\n", p->pid);
+    // vmprint(p->pagetable);
+    p->sz = uvmdealloc(myproc()->pagetable, myproc()->sz, myproc()->sz + n);
+    // printf("pid:%d , after uvmunmap.\n", p->pid);
+    // vmprint(p->pagetable);
+    // panic("xxx");
+  } else {
+    p->sz = myproc()->sz + n;
+  }
+
+  // if(growproc(n) < 0)
+  //   return -1;
   return addr;
 }
 
@@ -94,4 +108,20 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64 sys_sysinfo() {
+  uint64 sinfo; // user pointer to struct stat
+
+  argaddr(0, &sinfo);
+  struct proc *p = myproc();
+
+  struct sysinfo si;
+  si.freemem = freeMemInfo();
+  si.nproc = 0;
+
+  if (copyout(p->pagetable, sinfo, (char *)&si, sizeof(si)) < 0)
+    return -1;
+
+  return 0;
 }

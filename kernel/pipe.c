@@ -105,6 +105,9 @@ piperead(struct pipe *pi, uint64 addr, int n)
   int i;
   struct proc *pr = myproc();
   char ch;
+  if (addr > pr->sz) {
+    return -1;
+  }
 
   acquire(&pi->lock);
   while(pi->nread == pi->nwrite && pi->writeopen){  //DOC: pipe-empty

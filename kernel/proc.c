@@ -139,8 +139,14 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+
+  // printf("\n-------before----mem: freeMemInfo %d\n", freeMemInfo());
+  // printf("free proc'sz = %d\n", p->sz);
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+
+  // printf("---------after----mem: freeMemInfo %d\n", freeMemInfo());
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -644,6 +650,10 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 {
   struct proc *p = myproc();
   if(user_dst){
+    if (dst > p->sz)
+    {
+      return -1;
+    }
     return copyout(p->pagetable, dst, src, len);
   } else {
     memmove((char *)dst, src, len);

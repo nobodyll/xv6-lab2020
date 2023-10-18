@@ -110,6 +110,8 @@ fileread(struct file *f, uint64 addr, int n)
 
   if(f->readable == 0)
     return -1;
+  if (n < 0)
+    return -1;
 
   if(f->type == FD_PIPE){
     r = piperead(f->pipe, addr, n);

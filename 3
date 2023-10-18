@@ -1,0 +1,12 @@
+break sbrkmuch
+disable $bpnum
+break /home/dev/src/xv6-labs-2020/user/usertests.c:2089
+disable $bpnum
+break /home/dev/src/xv6-labs-2020/kernel/trap.c:88
+disable $bpnum
+break user/usertests.c:run
+break sys_wait
+break sys_exit
+break /home/dev/src/xv6-labs-2020/kernel/proc.c:410
+break /home/dev/src/xv6-labs-2020/kernel/proc.c:439
+break /home/dev/src/xv6-labs-2020/kernel/proc.c:418
