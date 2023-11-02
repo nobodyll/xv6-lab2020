@@ -116,6 +116,11 @@ exec(char *path, char **argv)
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
+  // user's pagetable mapping changes
+  // copy user's pagetable mapping to user's kernel pagetable
+  unmap_old_pages_for_exec(p->kpagetable, oldsz);
+  map_user_pgtbl(p->pagetable, p->kpagetable, sz);
+
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:

@@ -132,6 +132,7 @@ found:
     mappages(p->kpagetable, va, PGSIZE, pa, PTE_R | PTE_W);
   }
 
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -237,6 +238,9 @@ userinit(void)
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
 
+  // copy user's pagetable mapping to user's kernel pagetable.
+  map_user_pgtbl(p->pagetable, p->kpagetable, p->sz);
+
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
   p->trapframe->sp = PGSIZE;  // user stack pointer
@@ -245,6 +249,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+
 
   release(&p->lock);
 }
@@ -256,9 +261,17 @@ growproc(int n)
 {
   uint sz;
   struct proc *p = myproc();
-
+  uint64 oldsz = p->sz;
   sz = p->sz;
+
   if(n > 0){
+    // because in this lab, every process has a pagetable
+    // which map both kernel pages and process's own page
+    // so we must confirm the user's address can't overlap 
+    // the kernel's address. kernel's address from KERNBASE
+    // 
+    if (sz + n >= CLINT)  
+      return -1;
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
     }
@@ -266,6 +279,14 @@ growproc(int n)
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
+
+  unmap_old_pages_for_exec(p->kpagetable, oldsz);
+
+  // user's virtual address space size changes, 
+  // so user's pagetable changes
+  // need update the change to user's kernel pagetable
+  map_user_pgtbl(p->pagetable, p->kpagetable, p->sz);
+
   return 0;
 }
 
@@ -310,6 +331,9 @@ fork(void)
   pid = np->pid;
 
   np->state = RUNNABLE;
+
+  // copy user pagetable mapping to user's kernel pagetable 
+  map_user_pgtbl(np->pagetable, np->kpagetable, np->sz);
 
   release(&np->lock);
 
