@@ -21,6 +21,7 @@ static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
+extern pagetable_t kernel_pagetable;
 // initialize the proc table at boot time.
 void
 procinit(void)
@@ -121,6 +122,16 @@ found:
     return 0;
   }
 
+  // init the user's kernel pagetable.
+  p->kpagetable = userCreateKernelPagetable();
+
+  // set the user's kernel pagetable's kernel stack stuff.
+  for (int i = 0; i < NPROC; i++) {
+    uint64 va = KSTACK(i);
+    uint64 pa = walkaddr(kernel_pagetable, va);
+    mappages(p->kpagetable, va, PGSIZE, pa, PTE_R | PTE_W);
+  }
+
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
@@ -141,7 +152,8 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
-  p->pagetable = 0;
+  if (p->kpagetable)
+    proc_freekpagetable(p->kpagetable);
   p->sz = 0;
   p->pid = 0;
   p->parent = 0;
@@ -193,6 +205,10 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   uvmfree(pagetable, sz);
+}
+
+void proc_freekpagetable(pagetable_t pagetable) {
+  kfreewalk(pagetable);
 }
 
 // a user program that calls exec("/init")
@@ -473,7 +489,16 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+
+        // switch page table from kernel_pagetable to user's (p->kpagetable)
+        w_satp(MAKE_SATP(p->kpagetable));
+        sfence_vma();
+
         swtch(&c->context, &p->context);
+
+        // when we exec in the scheduler, we need use kernel_pagetable.
+        // switch page table from uers's kernel pagetable(p->kpagetable) to kernel_pagetable
+        kvminithart();
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
